@@ -244,29 +244,43 @@ def build_refined_track_meshes(frames):
     road_obj.data.materials.append(mat_yellow)
 
     bm_road = bmesh.new()
+    uv_layer_road = bm_road.loops.layers.uv.new("UVMap")
     road_profile = [
-        (-9.0, 0.00, 1),
-        (-8.6, 0.01, 1),
-        (-4.5, 0.035, 0),
-        (-0.2, 0.050, 2),
-        ( 0.2, 0.050, 2),
-        ( 4.5, 0.035, 0),
-        ( 8.6, 0.01, 1),
-        ( 9.0, 0.00, 1),
+        (-9.0, 0.00),
+        (-6.5, 0.02),
+        (-3.5, 0.04),
+        ( 0.0, 0.05),
+        ( 3.5, 0.04),
+        ( 6.5, 0.02),
+        ( 9.0, 0.00),
     ]
 
     road_rings = []
     for f in frames:
-        r_verts = [bm_road.verts.new(f["pos"] + f["normal"] * lat + f["binormal"] * h) for (lat, h, _) in road_profile]
+        r_verts = [bm_road.verts.new(f["pos"] + f["normal"] * lat + f["binormal"] * h) for (lat, h) in road_profile]
         road_rings.append(r_verts)
 
     bm_road.verts.ensure_lookup_table()
+    step_d = 3.5
     for i in range(total_rings):
         next_i = (i + 1) % total_rings
         r1, r2 = road_rings[i], road_rings[next_i]
+        u1 = (i * step_d) / 5.0
+        u2 = ((i + 1) * step_d) / 5.0
         for p in range(len(road_profile) - 1):
+            v1 = (road_profile[p][0] + 9.0) / 18.0
+            v2 = (road_profile[p+1][0] + 9.0) / 18.0
             face = bm_road.faces.new((r1[p], r1[p+1], r2[p+1], r2[p]))
-            face.material_index = road_profile[p][2]
+            face.material_index = 0
+            for loop in face.loops:
+                if loop.vert == r1[p]:
+                    loop[uv_layer_road].uv = Vector((u1, v1))
+                elif loop.vert == r1[p+1]:
+                    loop[uv_layer_road].uv = Vector((u1, v2))
+                elif loop.vert == r2[p+1]:
+                    loop[uv_layer_road].uv = Vector((u2, v2))
+                elif loop.vert == r2[p]:
+                    loop[uv_layer_road].uv = Vector((u2, v1))
 
     bm_road.to_mesh(road_mesh)
     bm_road.free()
@@ -297,6 +311,7 @@ def build_refined_track_meshes(frames):
     bar_obj.data.materials.append(mat_white if mat_white else mat_metal)   # 5: White kerb
 
     bm_bar = bmesh.new()
+    uv_layer_bar = bm_bar.loops.layers.uv.new("UVMap")
 
     # Left Solid Profile: 2.0m kerb + 3.8m tall closed crash barrier enclosure
     l_profile = [
@@ -347,20 +362,42 @@ def build_refined_track_meshes(frames):
         next_i = (i + 1) % total_rings
         # Alternating red (4) and white (5) motorsport kerbs every 4 rings (~14m stripes)
         kerb_mat = 4 if ((i // 4) % 2 == 0) else 5
+        u1 = (i * step_d) / 4.0
+        u2 = ((i + 1) * step_d) / 4.0
 
         l1, l2 = l_rings[i], l_rings[next_i]
         for p in range(len(l_profile) - 1):
-            # Winding B: (l1[p+1], l1[p], l2[p], l2[p+1]) ensures outward/inward facing normals for Left side
+            v1 = float(p) / (len(l_profile) - 1)
+            v2 = float(p + 1) / (len(l_profile) - 1)
             face = bm_bar.faces.new((l1[p+1], l1[p], l2[p], l2[p+1]))
             mat = l_profile[p][2]
             face.material_index = kerb_mat if mat == -1 else mat
+            for loop in face.loops:
+                if loop.vert == l1[p+1]:
+                    loop[uv_layer_bar].uv = Vector((u1, v2))
+                elif loop.vert == l1[p]:
+                    loop[uv_layer_bar].uv = Vector((u1, v1))
+                elif loop.vert == l2[p]:
+                    loop[uv_layer_bar].uv = Vector((u2, v1))
+                elif loop.vert == l2[p+1]:
+                    loop[uv_layer_bar].uv = Vector((u2, v2))
 
         r1, r2 = r_rings[i], r_rings[next_i]
         for p in range(len(r_profile) - 1):
-            # Winding A: (r1[p], r1[p+1], r2[p+1], r2[p]) ensures outward/inward facing normals for Right side
+            v1 = float(p) / (len(r_profile) - 1)
+            v2 = float(p + 1) / (len(r_profile) - 1)
             face = bm_bar.faces.new((r1[p], r1[p+1], r2[p+1], r2[p]))
             mat = r_profile[p][2]
             face.material_index = kerb_mat if mat == -1 else mat
+            for loop in face.loops:
+                if loop.vert == r1[p]:
+                    loop[uv_layer_bar].uv = Vector((u1, v1))
+                elif loop.vert == r1[p+1]:
+                    loop[uv_layer_bar].uv = Vector((u1, v2))
+                elif loop.vert == r2[p+1]:
+                    loop[uv_layer_bar].uv = Vector((u2, v2))
+                elif loop.vert == r2[p]:
+                    loop[uv_layer_bar].uv = Vector((u2, v1))
 
     bm_bar.to_mesh(bar_mesh)
     bm_bar.free()
